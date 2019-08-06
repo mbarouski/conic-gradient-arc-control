@@ -1,0 +1,10 @@
+{
+  "name": "cool-control",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "maximka777",
+  "license": "MIT",
+  "dependencies": {
+    "svg.js": "^2.7.1"
+  }
+}
