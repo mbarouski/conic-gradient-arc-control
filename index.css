@@ -1,0 +1,9 @@
+body, #drawing {
+	height: 100%;
+}
+
+#drawing {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
