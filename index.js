@@ -1,4 +1,4 @@
-import {degToRad, polarToCartesian} from './utils.js';
+import {polarToCartesian} from './utils.js';
 
 const size = 320;
 
@@ -22,7 +22,7 @@ let draw, arc;
 const _2PI = Math.PI * 2;
 
 function init() {
-	draw = SVG('drawing').viewbox(0, 0, 400, 400);
+	draw = SVG('drawing').viewbox(0, 0, size, size);
 	arc = drawArc(_2PI * multiplier);
 	addDefs();
 	applyConicGradient();
@@ -42,16 +42,31 @@ function calculateArc(endAngle) {
 	];
 }
 
+let fakeArc;
+
+let arcsGroup;
+
 function drawArc(endAngle) {
 	const arc = new SVG.PathArray(calculateArc(endAngle));
 
 	draw.fill('none');
 
-	return draw.path(arc).id(ARC_ID).fill('none').stroke({
-		color: 'orange',
+	// fake arc to fix cutting real one off
+	fakeArc = draw.path(arc).fill('none').stroke({
+		color: 'none',
 		width: strokeWidth,
 		linecap: 'round'
 	});
+
+	const realArc = draw.path(arc).id(ARC_ID).fill('none').stroke({
+		color: 'white',
+		width: strokeWidth,
+		linecap: 'round'
+	});
+
+	arcsGroup = draw.group().add(fakeArc).add(realArc);
+
+	return realArc;
 }
 
 function arcPath(startAngle, endAngle, radius, clockwise) {
@@ -82,7 +97,7 @@ function arcPath(startAngle, endAngle, radius, clockwise) {
 }
 
 function applyConicGradient() {
-	arc.attr('mask', `url(#${angleX})`);
+	arcsGroup.attr('mask', `url(#${angleX})`);
 
 	const maskA = SVG.get(partA);
 	const maskB = SVG.get(partB);
@@ -119,7 +134,8 @@ function addDefs() {
 }
 
 function degreeToRGBA(degree) {
-	var ratio = degree / 360;
+	// добавить распределние
+	var ratio = degree / 360; // 360 is real
 	var colorVal = Math.floor(255 * ratio);
 	var colorArray = [colorVal, colorVal, colorVal]
 	const result = 'rgba(' + colorArray.join(',') + ',1)';
@@ -128,18 +144,18 @@ function degreeToRGBA(degree) {
 
 init();
 
-document.body.onkeydown = e => {
-	let newMultiplier = multiplier;
-	if (e.code === 'ArrowRight') {
-		newMultiplier += 0.01;
-	} else if (e.code === 'ArrowLeft') {
-		newMultiplier -= 0.01;
-	}
-	if (newMultiplier !== multiplier && newMultiplier < MULTIPLIER_MAX && newMultiplier > MULTIPLIER_MIN) {
-		multiplier = newMultiplier;
-		updateArc();
-	}
-};
+// document.body.onkeydown = e => {
+// 	let newMultiplier = multiplier;
+// 	if (e.code === 'ArrowRight') {
+// 		newMultiplier += 0.01;
+// 	} else if (e.code === 'ArrowLeft') {
+// 		newMultiplier -= 0.01;
+// 	}
+// 	if (newMultiplier !== multiplier && newMultiplier < MULTIPLIER_MAX && newMultiplier > MULTIPLIER_MIN) {
+// 		multiplier = newMultiplier;
+// 		updateArc();
+// 	}
+// };
 
 function updateArc() {
 	const endAngle = _2PI * multiplier;
@@ -162,3 +178,20 @@ function updateArc() {
 	}, '');
 	document.querySelector(`#${ARC_ID}`).setAttribute('d', arcString);
 }
+
+let animationDirection = -1;
+
+function animate() {
+	setTimeout(() => {
+		requestAnimationFrame(() => {
+			if (multiplier > MULTIPLIER_MAX || multiplier < MULTIPLIER_MIN) {
+				animationDirection *= -1;
+			}
+			multiplier += 0.01 * animationDirection;
+			updateArc();
+			animate();
+		});
+	}, 1);
+}
+
+animate();
