@@ -1,5 +1,9 @@
-body, #drawing {
+body, #drawing, svg {
 	height: 100%;
+}
+
+svg:not(:root) {
+	display: inline-block;
 }
 
 #drawing {

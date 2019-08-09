@@ -4,7 +4,13 @@
   "main": "index.js",
   "author": "maximka777",
   "license": "MIT",
+  "scripts": {
+    "serve": "./node_modules/serve/bin/serve.js"
+  },
   "dependencies": {
     "svg.js": "^2.7.1"
+  },
+  "devDependencies": {
+    "serve": "^11.1.0"
   }
 }

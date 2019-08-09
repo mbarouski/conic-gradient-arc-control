@@ -1,47 +1,54 @@
-const size = 800;
+import {degToRad, polarToCartesian} from './utils.js';
 
-const strokeWidth = 100;
+const size = 320;
+
+const strokeWidth = 50;
 
 const overlapClip = 'overlapClip';
 const partA = 'partA';
 const partB = 'partB';
 const angleX = 'angleX';
 
-const INITIAL_ANGLE_FOR_GRADIENT = 80;
+const MULTIPLIER_MAX = 0.69;
+const MULTIPLIER_MIN = -0.15;
+let multiplier = 0.5;
+
+const ARC_ID = 'arc';
+
+const INITIAL_ANGLE_FOR_GRADIENT = 79;
 
 let draw, arc;
 
+const _2PI = Math.PI * 2;
+
 function init() {
-	draw = SVG('drawing').size(size, size);
-	arc = drawArc(270);
+	draw = SVG('drawing').viewbox(0, 0, 400, 400);
+	arc = drawArc(_2PI * multiplier);
 	addDefs();
 	applyConicGradient();
 }
 
-/**
- * endAngle in deg
- */
-function drawArc(endAngle) {
-	const startAngle = degToRad(0+90);
-	endAngle = degToRad(endAngle+90);
+function calculateArc(endAngle) {
+	const startAngle = _2PI * (-1/4);
+
 	const radius = size / 2 - strokeWidth / 2;
 	const clockwise = true;
 
 	const startPoint = polarToCartesian(startAngle, radius);
 
-	const arc = new SVG.PathArray([
+	return [
 		['M', startPoint[0] + strokeWidth / 2, startPoint[1] + strokeWidth / 2],
 		arcPath(startAngle, endAngle, radius, clockwise)
-	]);
+	];
+}
 
-	const group = draw.group();
-	group.center(0, 0);
-	group.rect(size, size).fill('none');
+function drawArc(endAngle) {
+	const arc = new SVG.PathArray(calculateArc(endAngle));
 
-	// return group.circle(size).fill('black');
+	draw.fill('none');
 
-	return group.path(arc).fill('none').stroke({
-		color: 'white',
+	return draw.path(arc).id(ARC_ID).fill('none').stroke({
+		color: 'orange',
 		width: strokeWidth,
 		linecap: 'round'
 	});
@@ -74,17 +81,6 @@ function arcPath(startAngle, endAngle, radius, clockwise) {
 	];
 }
 
-function degToRad(angle) {
-	return Math.PI / 180 * angle;
-}
-
-function polarToCartesian(angle, radius) {
-	return [
-		Math.abs(radius * Math.sin(angle)),
-		Math.abs(radius * Math.cos(angle))
-	];
-}
-
 function applyConicGradient() {
 	arc.attr('mask', `url(#${angleX})`);
 
@@ -98,7 +94,7 @@ function applyConicGradient() {
 
 		rect.node.setAttribute('transform', `rotate(${i} ${size / 2} ${size / 2})`);
 
-		if (i > 180) {
+		if (i > 270) {
 			maskB.add(rect);
 		} else {
 			maskA.add(rect);
@@ -131,3 +127,38 @@ function degreeToRGBA(degree) {
 }
 
 init();
+
+document.body.onkeydown = e => {
+	let newMultiplier = multiplier;
+	if (e.code === 'ArrowRight') {
+		newMultiplier += 0.01;
+	} else if (e.code === 'ArrowLeft') {
+		newMultiplier -= 0.01;
+	}
+	if (newMultiplier !== multiplier && newMultiplier < MULTIPLIER_MAX && newMultiplier > MULTIPLIER_MIN) {
+		multiplier = newMultiplier;
+		updateArc();
+	}
+};
+
+function updateArc() {
+	const endAngle = _2PI * multiplier;
+	const arc = calculateArc(endAngle);
+	const arcString = arc.reduce((accumulator, current) => {
+		if (Array.isArray(current)) {
+			return accumulator + current.reduce((acc, curr) => {
+				if (Number.isFinite(curr)) {
+					return acc + ' ' + curr;
+				}
+				return acc + curr;
+			}, '');
+		}
+
+		if (Number.isFinite(curr)) {
+			return acc + ' ' + curr;
+		}
+
+		return acc + curr;
+	}, '');
+	document.querySelector(`#${ARC_ID}`).setAttribute('d', arcString);
+}
