@@ -1,7 +1,7 @@
 
-export function polarToCartesian(angle, radius) {
+export function polarToCartesian(angle, radius, strokeWidth) {
 	return [
-		radius * Math.cos(angle) + radius,
-		radius * Math.sin(angle) + radius
+		radius * Math.cos(angle) + radius + strokeWidth / 2,
+		radius * Math.sin(angle) + radius + strokeWidth / 2
 	];
 }
