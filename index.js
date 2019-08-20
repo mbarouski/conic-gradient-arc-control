@@ -2,24 +2,28 @@ import {polarToCartesian} from './utils.js';
 
 const size = 320;
 
-const strokeWidth = 50;
+const realStrokeWidth = 75;
+const fakeStrokeWidth = 50;
 
 const overlapClip = 'overlapClip';
 const partA = 'partA';
 const partB = 'partB';
 const angleX = 'angleX';
 
-const MULTIPLIER_MAX = 0.69;
+const MULTIPLIER_MAX = 0.65;
 const MULTIPLIER_MIN = -0.15;
-let multiplier = 0.5;
+let multiplier = 0.65;
 
 const ARC_ID = 'arc';
 
-const INITIAL_ANGLE_FOR_GRADIENT = 79;
+const _2PI = Math.PI * 2;
+
+const INITIAL_ANGLE_FOR_GRADIENT = 83;
+const INITIAL_ANGLE_ARC = _2PI * (-0.85/4);
+
+const INITIAL_ANGLE_FAKE_ARC = _2PI * (-1/4);
 
 let draw, arc;
-
-const _2PI = Math.PI * 2;
 
 function init() {
 	draw = SVG('drawing').viewbox(0, 0, size, size);
@@ -28,17 +32,15 @@ function init() {
 	applyConicGradient();
 }
 
-function calculateArc(endAngle) {
-	const startAngle = _2PI * (-1/4);
-
+function calculateArc(startAngle, endAngle, strokeWidth) {
 	const radius = size / 2 - strokeWidth / 2;
 	const clockwise = true;
 
-	const startPoint = polarToCartesian(startAngle, radius);
+	const startPoint = polarToCartesian(startAngle, radius, strokeWidth);
 
 	return [
-		['M', startPoint[0] + strokeWidth / 2, startPoint[1] + strokeWidth / 2],
-		arcPath(startAngle, endAngle, radius, clockwise)
+		['M', ...startPoint],
+		arcPath(startAngle, endAngle, radius, clockwise, strokeWidth)
 	];
 }
 
@@ -47,20 +49,21 @@ let fakeArc;
 let arcsGroup;
 
 function drawArc(endAngle) {
-	const arc = new SVG.PathArray(calculateArc(endAngle));
+	const arcParameters = new SVG.PathArray(calculateArc(INITIAL_ANGLE_ARC, endAngle, realStrokeWidth));
+	const fakeArcParameters = new SVG.PathArray(calculateArc(INITIAL_ANGLE_FAKE_ARC, endAngle, fakeStrokeWidth));
 
 	draw.fill('none');
 
 	// fake arc to fix cutting real one off
-	fakeArc = draw.path(arc).fill('none').stroke({
+	fakeArc = draw.path(fakeArcParameters).fill('none').stroke({
 		color: 'none',
-		width: strokeWidth,
+		width: fakeStrokeWidth,
 		linecap: 'round'
 	});
 
-	const realArc = draw.path(arc).id(ARC_ID).fill('none').stroke({
+	const realArc = draw.path(arcParameters).id(ARC_ID).fill('none').stroke({
 		color: 'white',
-		width: strokeWidth,
+		width: realStrokeWidth,
 		linecap: 'round'
 	});
 
@@ -69,7 +72,7 @@ function drawArc(endAngle) {
 	return realArc;
 }
 
-function arcPath(startAngle, endAngle, radius, clockwise) {
+function arcPath(startAngle, endAngle, radius, clockwise, strokeWidth) {
 	var angle = Math.abs(startAngle - endAngle);
 	var fullCircle = angle == Math.PI * 2;
 	var largeArc;
@@ -83,7 +86,7 @@ function arcPath(startAngle, endAngle, radius, clockwise) {
 		largeArc = overHalf === clockwise !== reverse;
 	}
 
-	var endPoint = polarToCartesian(endAngle, radius);
+	var endPoint = polarToCartesian(endAngle, radius, strokeWidth);
 	return [
 		'A',
 		radius,
@@ -91,8 +94,8 @@ function arcPath(startAngle, endAngle, radius, clockwise) {
 		0,
 		largeArc ? 1 : 0,
 		clockwise ? 1 : 0,
-		endPoint[0] + strokeWidth / 2,
-		endPoint[1] + strokeWidth / 2
+		endPoint[0],
+		endPoint[1]
 	];
 }
 
@@ -133,33 +136,36 @@ function addDefs() {
 	group.add(groupB);
 }
 
+function a_delimiter(x1,y1,x2,y2) {
+	return (y2 - y1) / (x2 - x1);
+}
+
+function b_delimiter(x1,y1,a) {
+	return x1 * a - y1;
+}
+
+function make_delimiter_func(x1,y1,x2,y2) {
+	const a = a_delimiter(x1,y1,x2,y2);
+	const b = b_delimiter(x1,y1,a);
+	return deg => deg * (a) - b
+}
+
+const delimiter_func = make_delimiter_func(360, 360, 90, 2000);
+
 function degreeToRGBA(degree) {
-	// добавить распределние
-	var ratio = degree / 360; // 360 is real
-	var colorVal = Math.floor(255 * ratio);
-	var colorArray = [colorVal, colorVal, colorVal]
+	const delimiter = delimiter_func(degree);
+	const  ratio = degree / delimiter; // 360 is real delimimter
+	const colorVal = Math.floor(255 * ratio);
+	const colorArray = [colorVal, colorVal, colorVal]
 	const result = 'rgba(' + colorArray.join(',') + ',1)';
 	return result;
 }
 
 init();
 
-// document.body.onkeydown = e => {
-// 	let newMultiplier = multiplier;
-// 	if (e.code === 'ArrowRight') {
-// 		newMultiplier += 0.01;
-// 	} else if (e.code === 'ArrowLeft') {
-// 		newMultiplier -= 0.01;
-// 	}
-// 	if (newMultiplier !== multiplier && newMultiplier < MULTIPLIER_MAX && newMultiplier > MULTIPLIER_MIN) {
-// 		multiplier = newMultiplier;
-// 		updateArc();
-// 	}
-// };
-
 function updateArc() {
 	const endAngle = _2PI * multiplier;
-	const arc = calculateArc(endAngle);
+	const arc = calculateArc(INITIAL_ANGLE_ARC, endAngle, realStrokeWidth);
 	const arcString = arc.reduce((accumulator, current) => {
 		if (Array.isArray(current)) {
 			return accumulator + current.reduce((acc, curr) => {
@@ -182,16 +188,14 @@ function updateArc() {
 let animationDirection = -1;
 
 function animate() {
-	setTimeout(() => {
-		requestAnimationFrame(() => {
-			if (multiplier > MULTIPLIER_MAX || multiplier < MULTIPLIER_MIN) {
-				animationDirection *= -1;
-			}
-			multiplier += 0.01 * animationDirection;
-			updateArc();
-			animate();
-		});
-	}, 1);
+	requestAnimationFrame(() => {
+		if (multiplier > MULTIPLIER_MAX || multiplier < MULTIPLIER_MIN) {
+			animationDirection *= -1;
+		}
+		multiplier += 0.01 * animationDirection;
+		updateArc();
+		animate();
+	});
 }
 
 animate();
