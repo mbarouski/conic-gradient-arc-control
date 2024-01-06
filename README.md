@@ -1,3 +1,3 @@
 # Arc control with conic gradient
 
-[DEMO](https://maximka777.github.io/conic-gradient-arc-control)
+[DEMO](https://mbarouski.github.io/conic-gradient-arc-control)
